@@ -439,6 +439,7 @@ shub_log	k
 shub_ms	k
 shub_req_len	k
 shub_req_rpc	k
+shub_rot	k
 shub_sensors	k
 sleep_cores	k
 sleep_cores_after	k
