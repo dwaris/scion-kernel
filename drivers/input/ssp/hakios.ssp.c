@@ -180,6 +180,7 @@ static struct hakios_exynos_spi bus = {
 static vm_offset_t pmu, cmu_top, cmu_chub, gpio_chub, alive, peric0;
 static uint32_t steps, keep = 1, log_frames, div_ratio = 15, chub_on_ok;
 static uint32_t want_sensors = 0x2b3, period_ms = 20, req_rpc = SHUB_RPC_SENSOR_REQ, req_len = 1;
+static int shub_rot = 0;
 static bool powered;
 static const char *state = "off";
 
@@ -1256,6 +1257,24 @@ static volatile int32_t fake_v[3];
 static volatile uint64_t fake_until_ns;
 
 /* Convert a sample to the units of sys/hakios.sensors.h. False for sensors that are not passed to user space. */
+static void
+apply_rotation(struct hakios_sensor_sample *o)
+{
+	int32_t x = o->v[0];
+	int32_t y = o->v[1];
+
+	if (shub_rot == 90) {
+		o->v[0] = y;
+		o->v[1] = -x;
+	} else if (shub_rot == 180) {
+		o->v[0] = -x;
+		o->v[1] = -y;
+	} else if (shub_rot == 270) {
+		o->v[0] = -y;
+		o->v[1] = x;
+	}
+}
+
 static bool
 convert(const struct shub_sample *s, struct hakios_sensor_sample *o)
 {
@@ -1277,12 +1296,14 @@ convert(const struct shub_sample *s, struct hakios_sensor_sample *o)
 			o->v[1] = fake_v[1];
 			o->v[2] = fake_v[2];
 		}
+		apply_rotation(o);
 		return true;
 	case SSP_GYRO:
 		o->type = HAKIOS_SENSOR_GYRO;
 		o->v[0] = (int32_t)shub_le32(d);
 		o->v[1] = (int32_t)shub_le32(d + 4);
 		o->v[2] = (int32_t)shub_le32(d + 8);
+		apply_rotation(o);
 		return true;
 	case SSP_MAG:
 		o->type = HAKIOS_SENSOR_MAG;
@@ -1290,6 +1311,7 @@ convert(const struct shub_sample *s, struct hakios_sensor_sample *o)
 		o->v[1] = (int16_t)shub_le16(d + 2);
 		o->v[2] = (int16_t)shub_le16(d + 4);
 		o->v[3] = d[6];
+		apply_rotation(o);
 		return true;
 	case SSP_PRESSURE:
 		o->type = HAKIOS_SENSOR_PRESSURE;
@@ -1735,6 +1757,10 @@ hakios_ssp_init(void)
 	PE_parse_boot_argn("shub_ms", &period_ms, sizeof(period_ms));
 	PE_parse_boot_argn("shub_req_rpc", &req_rpc, sizeof(req_rpc));
 	PE_parse_boot_argn("shub_req_len", &req_len, sizeof(req_len));
+	PE_parse_boot_argn("shub_rot", &shub_rot, sizeof(shub_rot));
+	if (shub_rot != 0) {
+		say("shub: rotation %d degrees applied to accel/gyro/mag\n", shub_rot);
+	}
 	{
 		uint32_t h = 0;
 
