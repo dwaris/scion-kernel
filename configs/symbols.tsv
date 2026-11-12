@@ -471,7 +471,6 @@ SHUB_MS	arg	shub_ms	Sensors	k	hakios.ssp.c	sample period in ms (default 20; ligh
 SHUB_PEEK	arg	shub_peek	Sensors	k	hakios.ssp.c	a memory reader added to the hub's firmware as it is sent, for the GNSS bring-up (docs/gnss.md), which
 SHUB_REQ_LEN	arg	shub_req_len	Sensors	k	hakios.ssp.c	
 SHUB_REQ_RPC	arg	shub_req_rpc	Sensors	k	hakios.ssp.c	RPC that carries SSP to the hub
-SHUB_ROT	arg	shub_rot	Sensors	k	hakios.ssp.c	optional extra rotation of accel/gyro/mag samples (90, 180, 270); default 0
 SHUB_SAY	arg	shub_say	Sensors	k	hakios.ssp.c	with step 6: every n seconds two lines, the accelerometer's and the gyroscope's: the mean over
 SHUB_SELFREAD	arg	shub_selfread	Sensors	k	hakios.ssp.c	with step 6: thirty seconds after the boot, /dev/hakios-sensors opened and read for n seconds
 SHUB_SENSORS	arg	shub_sensors	Sensors	k	hakios.ssp.c	

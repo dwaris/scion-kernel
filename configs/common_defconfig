@@ -2,7 +2,7 @@
 # HakiOS common defconfig: every setting there is, with what it does.
 # Made by tools/hakios-config.py listing common -o <this file>; the values are the ones that file sets, and tests/CI check that it names every symbol.
 #
-# 733 symbols in 20 groups; 54 are set, 45 of them drivers built in.
+# 732 symbols in 20 groups; 54 are set, 45 of them drivers built in.
 #
 
 #
@@ -2199,7 +2199,7 @@ CONFIG_MODEM_AGAIN=y
 # CONFIG_BOOTARGS is not set
 
 #
-# Sensors (17)
+# Sensors (16)
 #
 
 # read by hakios.ssp.c (kernel)
@@ -2240,9 +2240,6 @@ CONFIG_MODEM_AGAIN=y
 
 # RPC that carries SSP to the hub
 # CONFIG_SHUB_REQ_RPC is not set
-
-# optional extra rotation of accel/gyro/mag samples (90, 180, 270); default 0
-# CONFIG_SHUB_ROT is not set
 
 # with step 6: every n seconds two lines, the accelerometer's and the gyroscope's: the mean over
 # CONFIG_SHUB_SAY is not set

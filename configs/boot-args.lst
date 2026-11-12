@@ -497,7 +497,6 @@ shub_ms	k
 shub_peek	k
 shub_req_len	k
 shub_req_rpc	k
-shub_rot	k
 shub_say	k
 shub_selfread	k
 shub_sensors	k

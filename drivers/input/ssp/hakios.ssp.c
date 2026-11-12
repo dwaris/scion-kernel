@@ -56,7 +56,6 @@
  *            yet. sysctl kern.hakios.sensors_selfread=n reads for n more.
  *   shub_req_rpc=<n>     RPC that carries SSP to the hub. Default 0x20: inferred from the hub's answers in RPC 0x21,
  *            not observed (lhd builds it). shub_req_len=0 sends the SSP bytes without the u16 length before them.
- *   shub_rot=<degrees>  optional extra rotation of accel/gyro/mag samples (90, 180, 270); default 0.
  *   shub_acc_pos=<0-7>   the accelerometer's (and gyroscope's) position in the formation of step 5. Default: the device
  *            tree's, 4 on the S9 (starlte), 7 on the S9+ (star2lte).
  *   shub_acc_cal=X,Y,Z   the accelerometer's factory offsets, sent to the hub before the sensors go on, as Samsung does
@@ -223,7 +222,6 @@ static struct hakios_exynos_spi bus = {
 static vm_offset_t pmu, cmu_top, cmu_chub, gpio_chub, alive, peric0;
 static uint32_t steps, keep = 1, log_frames, div_ratio = 15, chub_on_ok;
 static uint32_t want_sensors = 0x2b3, period_ms = 20, req_rpc = SHUB_RPC_SENSOR_REQ, req_len = 1;
-static int shub_rot = 0;
 static uint32_t acc_position = ACC_POSITION_S9; /* hakios_ssp_init(): by HAKIOS_DEVICE, or shub_acc_pos= */
 static bool acc_cal_given, gyro_cal_given;      /* shub_acc_cal=, shub_gyro_cal= */
 static int32_t acc_cal[3], gyro_cal[3];
@@ -1551,25 +1549,6 @@ static int q_readers;
 static volatile int32_t fake_v[3];
 static volatile uint64_t fake_until_ns;
 
-/* Optional rotation after the hub has applied the device mounting position. */
-static void
-apply_rotation(struct hakios_sensor_sample *o)
-{
-	int32_t x = o->v[0];
-	int32_t y = o->v[1];
-
-	if (shub_rot == 90) {
-		o->v[0] = y;
-		o->v[1] = -x;
-	} else if (shub_rot == 180) {
-		o->v[0] = -x;
-		o->v[1] = -y;
-	} else if (shub_rot == 270) {
-		o->v[0] = -y;
-		o->v[1] = x;
-	}
-}
-
 /* Convert a sample to the units of sys/hakios.sensors.h. False for sensors that are not passed to user space. */
 static bool
 convert(const struct shub_sample *s, struct hakios_sensor_sample *o)
@@ -1597,14 +1576,12 @@ convert(const struct shub_sample *s, struct hakios_sensor_sample *o)
 			o->v[1] = fake_v[1];
 			o->v[2] = fake_v[2];
 		}
-		apply_rotation(o);
 		return true;
 	case SSP_GYRO:
 		o->type = HAKIOS_SENSOR_GYRO;
 		o->v[0] = (int32_t)shub_le32(d);
 		o->v[1] = (int32_t)shub_le32(d + 4);
 		o->v[2] = (int32_t)shub_le32(d + 8);
-		apply_rotation(o);
 		return true;
 	case SSP_MAG:
 		o->type = HAKIOS_SENSOR_MAG;
@@ -1612,7 +1589,6 @@ convert(const struct shub_sample *s, struct hakios_sensor_sample *o)
 		o->v[1] = (int16_t)shub_le16(d + 2);
 		o->v[2] = (int16_t)shub_le16(d + 4);
 		o->v[3] = d[6];
-		apply_rotation(o);
 		return true;
 	case SSP_PRESSURE:
 		o->type = HAKIOS_SENSOR_PRESSURE;
@@ -2421,10 +2397,6 @@ hakios_ssp_init(void)
 	PE_parse_boot_argn("shub_ms", &period_ms, sizeof(period_ms));
 	PE_parse_boot_argn("shub_req_rpc", &req_rpc, sizeof(req_rpc));
 	PE_parse_boot_argn("shub_req_len", &req_len, sizeof(req_len));
-	PE_parse_boot_argn("shub_rot", &shub_rot, sizeof(shub_rot));
-	if (shub_rot != 0) {
-		say("shub: rotation %d degrees applied to accel/gyro/mag\n", shub_rot);
-	}
 	PE_parse_boot_argn("shub_peek", &peek, sizeof(peek));
 	acc_position = strcmp(HAKIOS_DEVICE, "star2lte") == 0 ? ACC_POSITION_S9PLUS : ACC_POSITION_S9;
 	PE_parse_boot_argn("shub_acc_pos", &acc_position, sizeof(acc_position));
