@@ -829,63 +829,6 @@ pan_drmSyncobjWait(int fd, uint32_t *handles, unsigned count, int64_t timeout_ns
 }
 
 /*
- * PanVK's JM backend makes some of its sync object calls as ioctls of their own, not through libdrm's
- * functions (panvk_vX_queue.c: a submission's fence handed to the semaphores it signals, through a
- * sync file; panvk_vX_event.c: VkEvents). Those are the same sync objects as above, kept in this
- * process; the kernel has none. True when NUMBER is one of them, with what it gave in ERROR (0 or
- * an errno). Panfrost's OpenGL ES uses libdrm's functions only.
- */
-int pan_drmSyncobjSignal(int fd, const uint32_t *handles, uint32_t count);
-
-static bool
-pan_syncobj_ioctl(unsigned number, void *arg, int *error)
-{
-	int result;
-
-	errno = 0;
-	if (number == (DRM_IOCTL_SYNCOBJ_CREATE & 0xff)) {
-		struct drm_syncobj_create *create = arg;
-
-		result = pan_drmSyncobjCreate(-1, create->flags, &create->handle);
-	} else if (number == (DRM_IOCTL_SYNCOBJ_DESTROY & 0xff)) {
-		result = pan_drmSyncobjDestroy(-1, ((struct drm_syncobj_destroy *)arg)->handle);
-	} else if (number == (DRM_IOCTL_SYNCOBJ_HANDLE_TO_FD & 0xff)) {
-		struct drm_syncobj_handle *handle = arg;
-
-		if (!(handle->flags & DRM_SYNCOBJ_HANDLE_TO_FD_FLAGS_EXPORT_SYNC_FILE)) {
-			*error = ENOSYS;        /* (a sync object as a descriptor of its own: none here) */
-			return true;
-		}
-		result = pan_drmSyncobjExportSyncFile(-1, handle->handle, &handle->fd);
-	} else if (number == (DRM_IOCTL_SYNCOBJ_FD_TO_HANDLE & 0xff)) {
-		struct drm_syncobj_handle *handle = arg;
-
-		if (!(handle->flags & DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_IMPORT_SYNC_FILE)) {
-			*error = ENOSYS;
-			return true;
-		}
-		result = pan_drmSyncobjImportSyncFile(-1, handle->handle, handle->fd);
-	} else if (number == (DRM_IOCTL_SYNCOBJ_WAIT & 0xff)) {
-		struct drm_syncobj_wait *wait = arg;
-
-		result = pan_drmSyncobjWait(-1, (uint32_t *)(uintptr_t)wait->handles, wait->count_handles, wait->timeout_nsec,
-		    wait->flags, &wait->first_signaled);
-	} else if (number == (DRM_IOCTL_SYNCOBJ_RESET & 0xff)) {
-		struct drm_syncobj_array *array = arg;
-
-		result = pan_drmSyncobjReset(-1, (const uint32_t *)(uintptr_t)array->handles, array->count_handles);
-	} else if (number == (DRM_IOCTL_SYNCOBJ_SIGNAL & 0xff)) {
-		struct drm_syncobj_array *array = arg;
-
-		result = pan_drmSyncobjSignal(-1, (const uint32_t *)(uintptr_t)array->handles, array->count_handles);
-	} else {
-		return false;
-	}
-	*error = result == 0 ? 0 : errno != 0 ? errno : EINVAL;
-	return true;
-}
-
-/*
  * A sync object's fence as a file descriptor (a "sync file"): panfrost makes one of its context's
  * sync object for every fence it hands out, and takes it into a new sync object at once
  * (pan_fence.c). Here it is another descriptor of /dev/null, with the job number kept beside its
@@ -961,6 +904,63 @@ pan_drmSyncobjImportSyncFile(int fd, uint32_t handle, int sync_file_fd)
 	pthread_cond_broadcast(&pan_given);
 	pthread_mutex_unlock(&lock);
 	return 0;
+}
+
+/*
+ * PanVK's JM backend makes some of its sync object calls as ioctls of their own, not through libdrm's
+ * functions (panvk_vX_queue.c: a submission's fence handed to the semaphores it signals, through a
+ * sync file; panvk_vX_event.c: VkEvents). Those are the same sync objects as above, kept in this
+ * process; the kernel has none. True when NUMBER is one of them, with what it gave in ERROR (0 or
+ * an errno). Panfrost's OpenGL ES uses libdrm's functions only.
+ */
+int pan_drmSyncobjSignal(int fd, const uint32_t *handles, uint32_t count);
+
+static bool
+pan_syncobj_ioctl(unsigned number, void *arg, int *error)
+{
+	int result;
+
+	errno = 0;
+	if (number == (DRM_IOCTL_SYNCOBJ_CREATE & 0xff)) {
+		struct drm_syncobj_create *create = arg;
+
+		result = pan_drmSyncobjCreate(-1, create->flags, &create->handle);
+	} else if (number == (DRM_IOCTL_SYNCOBJ_DESTROY & 0xff)) {
+		result = pan_drmSyncobjDestroy(-1, ((struct drm_syncobj_destroy *)arg)->handle);
+	} else if (number == (DRM_IOCTL_SYNCOBJ_HANDLE_TO_FD & 0xff)) {
+		struct drm_syncobj_handle *handle = arg;
+
+		if (!(handle->flags & DRM_SYNCOBJ_HANDLE_TO_FD_FLAGS_EXPORT_SYNC_FILE)) {
+			*error = ENOSYS;        /* (a sync object as a descriptor of its own: none here) */
+			return true;
+		}
+		result = pan_drmSyncobjExportSyncFile(-1, handle->handle, &handle->fd);
+	} else if (number == (DRM_IOCTL_SYNCOBJ_FD_TO_HANDLE & 0xff)) {
+		struct drm_syncobj_handle *handle = arg;
+
+		if (!(handle->flags & DRM_SYNCOBJ_FD_TO_HANDLE_FLAGS_IMPORT_SYNC_FILE)) {
+			*error = ENOSYS;
+			return true;
+		}
+		result = pan_drmSyncobjImportSyncFile(-1, handle->handle, handle->fd);
+	} else if (number == (DRM_IOCTL_SYNCOBJ_WAIT & 0xff)) {
+		struct drm_syncobj_wait *wait = arg;
+
+		result = pan_drmSyncobjWait(-1, (uint32_t *)(uintptr_t)wait->handles, wait->count_handles, wait->timeout_nsec,
+		    wait->flags, &wait->first_signaled);
+	} else if (number == (DRM_IOCTL_SYNCOBJ_RESET & 0xff)) {
+		struct drm_syncobj_array *array = arg;
+
+		result = pan_drmSyncobjReset(-1, (const uint32_t *)(uintptr_t)array->handles, array->count_handles);
+	} else if (number == (DRM_IOCTL_SYNCOBJ_SIGNAL & 0xff)) {
+		struct drm_syncobj_array *array = arg;
+
+		result = pan_drmSyncobjSignal(-1, (const uint32_t *)(uintptr_t)array->handles, array->count_handles);
+	} else {
+		return false;
+	}
+	*error = result == 0 ? 0 : errno != 0 ? errno : EINVAL;
+	return true;
 }
 
 /*
